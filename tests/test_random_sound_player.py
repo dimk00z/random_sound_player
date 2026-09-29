@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import subprocess
 import unittest
+from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -18,6 +19,19 @@ from random_sound_player import (
     play_random_forever,
     select_next_file,
 )
+from random_sound_player.progress import ProgressBar
+
+
+class ProgressBarTests(unittest.TestCase):
+    def test_renders_percentage_and_completes_the_line(self) -> None:
+        stream = StringIO()
+        progress = ProgressBar(10, "Playing", stream=stream, width=10)
+
+        progress.update(5)
+        progress.finish()
+
+        self.assertIn("Playing [#####-----]  50%", stream.getvalue())
+        self.assertTrue(stream.getvalue().endswith("\n"))
 
 
 class DiscoverMp3FilesTests(unittest.TestCase):

@@ -26,6 +26,8 @@ uv run random-sound-player --noise "/Users/ds/Desktop/Обращения/пау�
   --noise_volume 50
 ```
 
+In an interactive terminal, the app shows a progress bar for the main track and for the noise interval.
+
 With at least three MP3 files available, it does not choose the previous file for the next playback. Press `Ctrl-C` to stop.
 
 If the audio player cannot read an MP3, the app logs that it was skipped and excludes it from later selections for the current run.

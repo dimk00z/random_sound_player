@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import platform
 import random
 import shutil
 import subprocess
@@ -13,6 +14,7 @@ from typing import TYPE_CHECKING
 
 from .library import discover_mp3_files, select_next_file
 from .player import build_noise_command, build_player_command
+from .progress import ProgressBar, get_audio_duration, show_progress
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +38,7 @@ def play_noise_for_duration(
 
     deadline = monotonic() + duration_seconds
     process: subprocess.Popen[bytes] | None = None
+    progress = ProgressBar(duration_seconds, "Noise")
     try:
         while (remaining := deadline - monotonic()) > 0:
             if process is None or process.poll() is not None:
@@ -50,6 +53,7 @@ def play_noise_for_duration(
                     )
                 )
             sleep(min(0.1, remaining))
+            progress.update(duration_seconds - max(deadline - monotonic(), 0))
     finally:
         if process is not None and process.poll() is None:
             process.terminate()
@@ -58,6 +62,7 @@ def play_noise_for_duration(
             except subprocess.TimeoutExpired:
                 process.kill()
                 process.wait()
+        progress.finish()
 
 
 def play_random_forever(
@@ -78,6 +83,7 @@ def play_random_forever(
 
     previous: Path | None = None
     unreadable_files: set[Path] = set()
+    system_name = system or platform.system()
     while True:
         playable_files = [path for path in files if path not in unreadable_files]
         if not playable_files:
@@ -86,12 +92,18 @@ def play_random_forever(
         selected = select_next_file(playable_files, previous, choice)
         logger.info("Playing: %s", selected)
         try:
-            run_command(
-                build_player_command(
-                    selected, settings.volume, system=system, which=which
-                ),
-                check=True,
+            duration = (
+                get_audio_duration(selected, system=system_name, which=which)
+                if run_command is subprocess.run
+                else None
             )
+            with show_progress(duration, "Playing"):
+                run_command(
+                    build_player_command(
+                        selected, settings.volume, system=system, which=which
+                    ),
+                    check=True,
+                )
         except subprocess.CalledProcessError:
             logger.warning("Skipping unreadable MP3: %s", selected)
             unreadable_files.add(selected)
