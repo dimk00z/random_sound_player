@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
-import unittest
 
 from random_sound_player import (
     PlayerUnavailableError,
+    Settings,
     build_noise_command,
     build_player_command,
     discover_mp3_files,
@@ -15,7 +16,6 @@ from random_sound_player import (
     play_noise_for_duration,
     play_random_forever,
     select_next_file,
-    Settings,
 )
 
 
@@ -32,7 +32,11 @@ class DiscoverMp3FilesTests(unittest.TestCase):
 
             self.assertEqual(
                 discover_mp3_files(directory),
-                [directory / "first.mp3", directory / "second.MP3", directory / "Обращение.mp3"],
+                [
+                    directory / "first.mp3",
+                    directory / "second.MP3",
+                    directory / "Обращение.mp3",
+                ],
             )
 
 
@@ -78,7 +82,9 @@ class PlayerCommandTests(unittest.TestCase):
 
     def test_requires_ffplay_on_linux(self) -> None:
         with self.assertRaises(PlayerUnavailableError):
-            build_player_command(Path("sound.mp3"), 100, system="Linux", which=lambda _: None)
+            build_player_command(
+                Path("sound.mp3"), 100, system="Linux", which=lambda _: None
+            )
 
 
 class PlaybackLoopTests(unittest.TestCase):
@@ -114,7 +120,9 @@ class PlaybackLoopTests(unittest.TestCase):
                 sleep=lambda seconds: clock.__setitem__(0, clock[0] + seconds),
             )
 
-        self.assertEqual(commands, [["/usr/bin/afplay", "-v", "0.5", "-t", "60", str(noise_path)]])
+        self.assertEqual(
+            commands, [["/usr/bin/afplay", "-v", "0.5", "-t", "60", str(noise_path)]]
+        )
         self.assertAlmostEqual(clock[0], 60)
         self.assertTrue(process.terminated)
 
@@ -164,9 +172,14 @@ class ArgumentTests(unittest.TestCase):
             parse_args(["music", "--max-minutes", "inf"])
 
     def test_reports_filesystem_errors_without_a_traceback(self) -> None:
-        with patch("random_sound_player.cli.play_random_forever", side_effect=PermissionError("permission denied")):
-            with self.assertRaises(SystemExit) as error:
-                main(["music"])
+        with (
+            patch(
+                "random_sound_player.cli.play_random_forever",
+                side_effect=PermissionError("permission denied"),
+            ),
+            self.assertRaises(SystemExit) as error,
+        ):
+            main(["music"])
 
         self.assertEqual(error.exception.code, 1)
 
