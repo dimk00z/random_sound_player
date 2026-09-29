@@ -20,6 +20,8 @@ class Settings:
     min_minutes: float
     max_minutes: float
     volume: int
+    noise: Path | None = None
+    noise_volume: int = 50
 
 
 def _positive_number(value: str) -> float:
@@ -71,15 +73,28 @@ def parse_args(argv: Sequence[str] | None = None) -> Settings:
         default=100,
         help="Playback volume, 0-100 (default: 100)",
     )
+    parser.add_argument("--noise", type=Path, help="MP3 to loop while waiting")
+    parser.add_argument(
+        "--noise-volume",
+        "--noise_volume",
+        dest="noise_volume",
+        type=_volume,
+        default=50,
+        help="Noise volume, 0-100 (default: 50)",
+    )
     arguments = parser.parse_args(argv)
     if arguments.min_minutes > arguments.max_minutes:
         parser.error("--min-minutes cannot be greater than --max-minutes")
-    return Settings(
+    settings = Settings(
         arguments.directory,
         arguments.min_minutes,
         arguments.max_minutes,
         arguments.volume,
+        arguments.noise,
+        arguments.noise_volume,
     )
+    print(settings)
+    return settings
 
 
 def main(argv: Sequence[str] | None = None) -> None:

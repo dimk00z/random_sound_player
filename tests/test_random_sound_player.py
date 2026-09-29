@@ -7,10 +7,12 @@ import unittest
 
 from random_sound_player import (
     PlayerUnavailableError,
+    build_noise_command,
     build_player_command,
     discover_mp3_files,
     main,
     parse_args,
+    play_noise_for_duration,
     play_random_forever,
     select_next_file,
     Settings,
@@ -44,6 +46,25 @@ class SelectionTests(unittest.TestCase):
 
 
 class PlayerCommandTests(unittest.TestCase):
+    def test_builds_mac_noise_command_capped_to_the_remaining_wait(self) -> None:
+        self.assertEqual(
+            build_noise_command(
+                Path("/Users/ds/Desktop/Обращения/шум.mp3"),
+                50,
+                duration_seconds=750,
+                system="Darwin",
+                which=lambda _: "/usr/bin/afplay",
+            ),
+            [
+                "/usr/bin/afplay",
+                "-v",
+                "0.5",
+                "-t",
+                "750",
+                "/Users/ds/Desktop/Обращения/шум.mp3",
+            ],
+        )
+
     def test_builds_afplay_command_with_normalized_volume(self) -> None:
         self.assertEqual(
             build_player_command(
@@ -61,6 +82,42 @@ class PlayerCommandTests(unittest.TestCase):
 
 
 class PlaybackLoopTests(unittest.TestCase):
+    def test_noise_runs_until_the_wait_deadline(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            noise_path = Path(temp_dir) / "шум.mp3"
+            noise_path.touch()
+            clock = [0.0]
+            commands: list[list[str]] = []
+
+            class Process:
+                terminated = False
+
+                def poll(self) -> None:
+                    return None
+
+                def terminate(self) -> None:
+                    self.terminated = True
+
+                def wait(self, timeout: float | None = None) -> None:
+                    return None
+
+            process = Process()
+
+            play_noise_for_duration(
+                noise_path,
+                50,
+                60,
+                system="Darwin",
+                which=lambda _: "/usr/bin/afplay",
+                popen=lambda command: commands.append(command) or process,
+                monotonic=lambda: clock[0],
+                sleep=lambda seconds: clock.__setitem__(0, clock[0] + seconds),
+            )
+
+        self.assertEqual(commands, [["/usr/bin/afplay", "-v", "0.5", "-t", "60", str(noise_path)]])
+        self.assertAlmostEqual(clock[0], 60)
+        self.assertTrue(process.terminated)
+
     def test_plays_immediately_then_sleeps_for_the_selected_delay(self) -> None:
         with TemporaryDirectory() as temp_dir:
             file_path = Path(temp_dir) / "Обращение.mp3"
@@ -89,6 +146,12 @@ class PlaybackLoopTests(unittest.TestCase):
 
 
 class ArgumentTests(unittest.TestCase):
+    def test_noise_uses_default_volume_of_fifty(self) -> None:
+        settings = parse_args(["--noise", "pause.mp3"])
+
+        self.assertEqual(settings.noise, Path("pause.mp3"))
+        self.assertEqual(settings.noise_volume, 50)
+
     def test_defaults_directory_to_dot_play(self) -> None:
         self.assertEqual(parse_args([]).directory, Path(".play"))
 

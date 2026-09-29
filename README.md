@@ -19,6 +19,13 @@ uv run random-sound-player "/Users/ds/Desktop/Обращения" \
   --min-minutes 10 --max-minutes 20 --volume 75
 ```
 
+Optionally play a separate MP3 continuously during each waiting interval. It loops until the same `Waiting … minutes` interval ends; its default volume is 50.
+
+```sh
+uv run random-sound-player --noise "/Users/ds/Desktop/Обращения/пауза.mp3" \
+  --noise_volume 50
+```
+
 With at least three MP3 files available, it does not choose the previous file for the next playback. Press `Ctrl-C` to stop.
 
 The player uses macOS `afplay`; on Linux it requires `ffplay`.

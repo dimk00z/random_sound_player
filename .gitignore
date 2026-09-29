@@ -10,3 +10,4 @@ wheels/
 .venv
 .play
 .DS_Store
+.noise
