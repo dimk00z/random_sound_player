@@ -1,6 +1,10 @@
 # Random Sound Player
 
-`random-sound-player` plays a random MP3 from a directory immediately, then waits a random interval before playing another file.
+`random-sound-player` plays a random MP3 from a directory immediately, then waits a random interval before playing another file. Without a directory argument, it uses `.play` in the current directory.
+
+```sh
+uv run random-sound-player
+```
 
 ```sh
 uv run random-sound-player "/Users/ds/Desktop/Обращения"

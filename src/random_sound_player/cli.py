@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import argparse
-from collections.abc import Sequence
-from dataclasses import dataclass
 import math
-from pathlib import Path
 import subprocess
 import sys
+from collections.abc import Sequence
+from dataclasses import dataclass
+from pathlib import Path
 
 from .player import PlayerUnavailableError
 from .runner import play_random_forever
@@ -43,15 +43,43 @@ def _volume(value: str) -> int:
 
 
 def parse_args(argv: Sequence[str] | None = None) -> Settings:
-    parser = argparse.ArgumentParser(description="Play random MP3 files at random intervals.")
-    parser.add_argument("directory", type=Path, help="Directory containing MP3 files")
-    parser.add_argument("--min-minutes", type=_positive_number, default=5, help="Minimum delay (default: 5)")
-    parser.add_argument("--max-minutes", type=_positive_number, default=30, help="Maximum delay (default: 30)")
-    parser.add_argument("--volume", type=_volume, default=100, help="Playback volume, 0-100 (default: 100)")
+    parser = argparse.ArgumentParser(
+        description="Play random MP3 files at random intervals."
+    )
+    parser.add_argument(
+        "directory",
+        nargs="?",
+        type=Path,
+        default=Path(".play"),
+        help="Directory containing MP3 files (default: .play)",
+    )
+    parser.add_argument(
+        "--min-minutes",
+        type=_positive_number,
+        default=5,
+        help="Minimum delay (default: 5)",
+    )
+    parser.add_argument(
+        "--max-minutes",
+        type=_positive_number,
+        default=15,
+        help="Maximum delay (default: 15)",
+    )
+    parser.add_argument(
+        "--volume",
+        type=_volume,
+        default=100,
+        help="Playback volume, 0-100 (default: 100)",
+    )
     arguments = parser.parse_args(argv)
     if arguments.min_minutes > arguments.max_minutes:
         parser.error("--min-minutes cannot be greater than --max-minutes")
-    return Settings(arguments.directory, arguments.min_minutes, arguments.max_minutes, arguments.volume)
+    return Settings(
+        arguments.directory,
+        arguments.min_minutes,
+        arguments.max_minutes,
+        arguments.volume,
+    )
 
 
 def main(argv: Sequence[str] | None = None) -> None:
@@ -59,6 +87,11 @@ def main(argv: Sequence[str] | None = None) -> None:
         play_random_forever(parse_args(argv))
     except KeyboardInterrupt:
         print("Stopped.")
-    except (OSError, PlayerUnavailableError, ValueError, subprocess.CalledProcessError) as error:
+    except (
+        OSError,
+        PlayerUnavailableError,
+        ValueError,
+        subprocess.CalledProcessError,
+    ) as error:
         print(f"error: {error}", file=sys.stderr)
         raise SystemExit(1) from error

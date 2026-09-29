@@ -89,6 +89,9 @@ class PlaybackLoopTests(unittest.TestCase):
 
 
 class ArgumentTests(unittest.TestCase):
+    def test_defaults_directory_to_dot_play(self) -> None:
+        self.assertEqual(parse_args([]).directory, Path(".play"))
+
     def test_rejects_an_inverted_delay_range(self) -> None:
         with self.assertRaises(SystemExit):
             parse_args(["music", "--min-minutes", "30", "--max-minutes", "5"])
