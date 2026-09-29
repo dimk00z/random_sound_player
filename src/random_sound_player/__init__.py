@@ -1,2 +1,17 @@
-def main() -> None:
-    print("Hello from random-sound-player!")
+"""Public API for the random sound player."""
+
+from .cli import Settings, main, parse_args
+from .library import discover_mp3_files, select_next_file
+from .player import PlayerUnavailableError, build_player_command
+from .runner import play_random_forever
+
+__all__ = [
+    "PlayerUnavailableError",
+    "Settings",
+    "build_player_command",
+    "discover_mp3_files",
+    "main",
+    "parse_args",
+    "play_random_forever",
+    "select_next_file",
+]
