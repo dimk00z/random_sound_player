@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -69,6 +70,29 @@ class PlayerCommandTests(unittest.TestCase):
             ],
         )
 
+    def test_builds_linux_noise_command_with_an_infinite_loop(self) -> None:
+        self.assertEqual(
+            build_noise_command(
+                Path("noise.mp3"),
+                50,
+                duration_seconds=60,
+                system="Linux",
+                which=lambda _: "/usr/bin/ffplay",
+            ),
+            [
+                "/usr/bin/ffplay",
+                "-nodisp",
+                "-autoexit",
+                "-loglevel",
+                "error",
+                "-loop",
+                "0",
+                "-volume",
+                "50",
+                "noise.mp3",
+            ],
+        )
+
     def test_builds_afplay_command_with_normalized_volume(self) -> None:
         self.assertEqual(
             build_player_command(
@@ -88,6 +112,40 @@ class PlayerCommandTests(unittest.TestCase):
 
 
 class PlaybackLoopTests(unittest.TestCase):
+    def test_skips_a_file_that_the_player_cannot_read(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            directory = Path(temp_dir)
+            broken_file = directory / "broken.mp3"
+            playable_file = directory / "playable.mp3"
+            broken_file.touch()
+            playable_file.touch()
+            commands: list[list[str]] = []
+
+            def run_command(command: list[str], **_kwargs: object) -> None:
+                commands.append(command)
+                if len(commands) == 1:
+                    raise subprocess.CalledProcessError(1, command)
+
+            with (
+                self.assertLogs("random_sound_player.runner", level="WARNING") as logs,
+                self.assertRaises(KeyboardInterrupt),
+            ):
+                play_random_forever(
+                    Settings(directory, 5, 30, 100),
+                    system="Darwin",
+                    which=lambda _: "/usr/bin/afplay",
+                    choice=lambda candidates: candidates[0],
+                    uniform=lambda _minimum, _maximum: 5,
+                    sleep=lambda _seconds: (_ for _ in ()).throw(KeyboardInterrupt),
+                    run_command=run_command,
+                )
+
+        self.assertEqual(
+            [command[-1] for command in commands],
+            [str(broken_file), str(playable_file)],
+        )
+        self.assertIn("Skipping unreadable MP3", logs.output[0])
+
     def test_noise_runs_until_the_wait_deadline(self) -> None:
         with TemporaryDirectory() as temp_dir:
             noise_path = Path(temp_dir) / "шум.mp3"
@@ -109,22 +167,27 @@ class PlaybackLoopTests(unittest.TestCase):
 
             process = Process()
 
-            play_noise_for_duration(
-                noise_path,
-                50,
-                60,
-                system="Darwin",
-                which=lambda _: "/usr/bin/afplay",
-                popen=lambda command: commands.append(command) or process,
-                monotonic=lambda: clock[0],
-                sleep=lambda seconds: clock.__setitem__(0, clock[0] + seconds),
-            )
+            with self.assertLogs("random_sound_player.runner", level="INFO") as logs:
+                play_noise_for_duration(
+                    noise_path,
+                    50,
+                    60,
+                    system="Darwin",
+                    which=lambda _: "/usr/bin/afplay",
+                    popen=lambda command: commands.append(command) or process,
+                    monotonic=lambda: clock[0],
+                    sleep=lambda seconds: clock.__setitem__(0, clock[0] + seconds),
+                )
 
         self.assertEqual(
             commands, [["/usr/bin/afplay", "-v", "0.5", "-t", "60", str(noise_path)]]
         )
         self.assertAlmostEqual(clock[0], 60)
         self.assertTrue(process.terminated)
+        self.assertEqual(
+            logs.output,
+            [f"INFO:random_sound_player.runner:Playing noise: {noise_path}"],
+        )
 
     def test_plays_immediately_then_sleeps_for_the_selected_delay(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -146,7 +209,6 @@ class PlaybackLoopTests(unittest.TestCase):
                     uniform=lambda _minimum, _maximum: 12.5,
                     sleep=stop_after_first_sleep,
                     run_command=lambda command, **_kwargs: commands.append(command),
-                    output=lambda _message: None,
                 )
 
         self.assertEqual(commands, [["/usr/bin/afplay", "-v", "1", str(file_path)]])

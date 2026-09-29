@@ -3,15 +3,17 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import math
 import subprocess
-import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
 from .player import PlayerUnavailableError
 from .runner import play_random_forever
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -93,20 +95,21 @@ def parse_args(argv: Sequence[str] | None = None) -> Settings:
         arguments.noise,
         arguments.noise_volume,
     )
-    print(settings)
+    logger.info("Settings: %s", settings)
     return settings
 
 
 def main(argv: Sequence[str] | None = None) -> None:
+    logging.basicConfig(level=logging.INFO)
     try:
         play_random_forever(parse_args(argv))
     except KeyboardInterrupt:
-        print("Stopped.")
+        logger.info("Stopped.")
     except (
         OSError,
         PlayerUnavailableError,
         ValueError,
         subprocess.CalledProcessError,
     ) as error:
-        print(f"error: {error}", file=sys.stderr)
+        logger.error("%s", error)
         raise SystemExit(1) from error

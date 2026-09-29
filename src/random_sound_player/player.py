@@ -58,7 +58,9 @@ def build_noise_command(
     if system_name == "Darwin":
         player = which("afplay")
         if player is None:
-            raise PlayerUnavailableError("afplay is required on macOS but was not found")
+            raise PlayerUnavailableError(
+                "afplay is required on macOS but was not found"
+            )
         return [
             player,
             "-v",
@@ -70,15 +72,17 @@ def build_noise_command(
     if system_name == "Linux":
         player = which("ffplay")
         if player is None:
-            raise PlayerUnavailableError("ffplay is required on Linux but was not found")
+            raise PlayerUnavailableError(
+                "ffplay is required on Linux but was not found"
+            )
         return [
             player,
             "-nodisp",
             "-autoexit",
             "-loglevel",
             "error",
-            "-stream_loop",
-            "-1",
+            "-loop",
+            "0",
             "-volume",
             str(volume),
             str(file_path),

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import random
 import shutil
 import subprocess
@@ -12,6 +13,8 @@ from typing import TYPE_CHECKING
 
 from .library import discover_mp3_files, select_next_file
 from .player import build_noise_command, build_player_command
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from .cli import Settings
@@ -36,6 +39,7 @@ def play_noise_for_duration(
     try:
         while (remaining := deadline - monotonic()) > 0:
             if process is None or process.poll() is not None:
+                logger.info("Playing noise: %s", noise_path)
                 process = popen(
                     build_noise_command(
                         noise_path,
@@ -67,23 +71,34 @@ def play_random_forever(
     run_command: Callable[..., subprocess.CompletedProcess[bytes]] = subprocess.run,
     noise_popen: Callable[[list[str]], subprocess.Popen[bytes]] = subprocess.Popen,
     monotonic: Callable[[], float] = time.monotonic,
-    output: Callable[[str], None] = print,
 ) -> None:
     files = discover_mp3_files(settings.directory)
     if not files:
         raise ValueError(f"no MP3 files found in: {settings.directory}")
 
     previous: Path | None = None
+    unreadable_files: set[Path] = set()
     while True:
-        selected = select_next_file(files, previous, choice)
-        output(f"Playing: {selected}")
-        run_command(
-            build_player_command(selected, settings.volume, system=system, which=which),
-            check=True,
-        )
+        playable_files = [path for path in files if path not in unreadable_files]
+        if not playable_files:
+            raise ValueError(f"no playable MP3 files found in: {settings.directory}")
+
+        selected = select_next_file(playable_files, previous, choice)
+        logger.info("Playing: %s", selected)
+        try:
+            run_command(
+                build_player_command(
+                    selected, settings.volume, system=system, which=which
+                ),
+                check=True,
+            )
+        except subprocess.CalledProcessError:
+            logger.warning("Skipping unreadable MP3: %s", selected)
+            unreadable_files.add(selected)
+            continue
         previous = selected
         delay_seconds = uniform(settings.min_minutes, settings.max_minutes) * 60
-        output(f"Waiting {delay_seconds / 60:g} minutes")
+        logger.info("Waiting %g minutes", delay_seconds / 60)
         if settings.noise is None:
             sleep(delay_seconds)
         else:
