@@ -21,10 +21,17 @@ def select_next_file(
     files: Sequence[Path],
     previous: Path | None = None,
     choice: Callable[[Sequence[Path]], Path] = random.choice,
+    *,
+    remaining: list[Path] | None = None,
 ) -> Path:
     if not files:
         raise ValueError("no MP3 files found")
-    candidates = (
-        [path for path in files if path != previous] if len(files) >= 3 else list(files)
-    )
-    return choice(candidates)
+    if remaining is None:
+        remaining = list(files)
+    if not remaining:
+        remaining.extend(files)
+
+    candidates = [path for path in remaining if path != previous]
+    selected = choice(candidates or remaining)
+    remaining.remove(selected)
+    return selected

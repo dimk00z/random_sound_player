@@ -83,13 +83,22 @@ def play_random_forever(
 
     previous: Path | None = None
     unreadable_files: set[Path] = set()
+    remaining_files: list[Path] = []
     system_name = system or platform.system()
     while True:
         playable_files = [path for path in files if path not in unreadable_files]
         if not playable_files:
             raise ValueError(f"no playable MP3 files found in: {settings.directory}")
 
-        selected = select_next_file(playable_files, previous, choice)
+        remaining_files[:] = [
+            path for path in remaining_files if path in playable_files
+        ]
+        selected = select_next_file(
+            playable_files,
+            previous,
+            choice,
+            remaining=remaining_files,
+        )
         logger.info("Playing: %s", selected)
         try:
             duration = (

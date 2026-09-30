@@ -56,12 +56,25 @@ class DiscoverMp3FilesTests(unittest.TestCase):
 
 
 class SelectionTests(unittest.TestCase):
-    def test_excludes_previous_file_when_three_or_more_candidates_exist(self) -> None:
+    def test_plays_every_file_before_refilling_the_random_pool(self) -> None:
         files = [Path("one.mp3"), Path("two.mp3"), Path("three.mp3")]
+        remaining: list[Path] = []
 
-        selected = select_next_file(files, previous=files[0])
+        selected: list[Path] = []
+        for _ in range(6):
+            selected.append(
+                select_next_file(
+                files,
+                previous=selected[-1] if selected else None,
+                choice=lambda candidates: candidates[-1],
+                remaining=remaining,
+            )
+            )
 
-        self.assertIn(selected, files[1:])
+        self.assertEqual(selected, [files[2], files[1], files[0], files[2], files[1], files[0]])
+        self.assertEqual(set(selected[:3]), set(files))
+        self.assertEqual(set(selected[3:]), set(files))
+        self.assertNotEqual(selected[2], selected[3])
 
 
 class PlayerCommandTests(unittest.TestCase):
