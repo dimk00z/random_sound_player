@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
 
 def play_noise_for_duration(
-    noise_path: Path,
+    noise_paths: Sequence[Path] | Path,
     volume: int,
     duration_seconds: float,
     *,
@@ -33,35 +33,40 @@ def play_noise_for_duration(
     monotonic: Callable[[], float] = time.monotonic,
     sleep: Callable[[float], None] = time.sleep,
 ) -> None:
-    if not noise_path.is_file() or noise_path.suffix.lower() != ".mp3":
-        raise ValueError(f"noise must be an MP3 file: {noise_path}")
+    normalized_noise_paths = (noise_paths,) if isinstance(noise_paths, Path) else noise_paths
+    for noise_path in normalized_noise_paths:
+        if not noise_path.is_file() or noise_path.suffix.lower() != ".mp3":
+            raise ValueError(f"noise must be an MP3 file: {noise_path}")
 
     deadline = monotonic() + duration_seconds
-    process: subprocess.Popen[bytes] | None = None
+    processes: list[subprocess.Popen[bytes] | None] = [None] * len(normalized_noise_paths)
     progress = ProgressBar(duration_seconds, "Noise")
     try:
         while (remaining := deadline - monotonic()) > 0:
-            if process is None or process.poll() is not None:
-                logger.info("Playing noise: %s", noise_path)
-                process = popen(
-                    build_noise_command(
-                        noise_path,
-                        volume,
-                        duration_seconds=remaining,
-                        system=system,
-                        which=which,
+            for index, noise_path in enumerate(normalized_noise_paths):
+                process = processes[index]
+                if process is None or process.poll() is not None:
+                    logger.info("Playing noise: %s", noise_path)
+                    processes[index] = popen(
+                        build_noise_command(
+                            noise_path,
+                            volume,
+                            duration_seconds=remaining,
+                            system=system,
+                            which=which,
+                        )
                     )
-                )
             sleep(min(0.1, remaining))
             progress.update(duration_seconds - max(deadline - monotonic(), 0))
     finally:
-        if process is not None and process.poll() is None:
-            process.terminate()
-            try:
-                process.wait(timeout=1)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait()
+        for process in processes:
+            if process is not None and process.poll() is None:
+                process.terminate()
+                try:
+                    process.wait(timeout=1)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait()
         progress.finish()
 
 
@@ -120,7 +125,7 @@ def play_random_forever(
         previous = selected
         delay_seconds = uniform(settings.min_minutes, settings.max_minutes) * 60
         logger.info("Waiting %g minutes", delay_seconds / 60)
-        if settings.noise is None:
+        if not settings.noise:
             sleep(delay_seconds)
         else:
             play_noise_for_duration(

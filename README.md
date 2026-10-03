@@ -19,10 +19,10 @@ uv run random-sound-player "/Users/ds/Desktop/Обращения" \
   --min-minutes 10 --max-minutes 20 --volume 75
 ```
 
-Optionally play a separate MP3 continuously during each waiting interval. It loops until the same `Waiting … minutes` interval ends; its default volume is 50.
+Optionally play one or more MP3 files continuously during each waiting interval. Supply paths separated by commas; they play together until the same `Waiting … minutes` interval ends. The default volume is 50 for each file.
 
 ```sh
-uv run random-sound-player --noise "/Users/ds/Desktop/Обращения/пауза.mp3" \
+uv run random-sound-player --noise "/Users/ds/Desktop/Обращения/дождь.mp3,/Users/ds/Desktop/Обращения/ветер.mp3" \
   --noise_volume 50
 ```
 

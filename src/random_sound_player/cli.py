@@ -22,7 +22,7 @@ class Settings:
     min_minutes: float
     max_minutes: float
     volume: int
-    noise: Path | None = None
+    noise: tuple[Path, ...] = ()
     noise_volume: int = 50
 
 
@@ -44,6 +44,13 @@ def _volume(value: str) -> int:
     if not 0 <= number <= 100:
         raise argparse.ArgumentTypeError("must be between 0 and 100")
     return number
+
+
+def _noise_paths(value: str) -> tuple[Path, ...]:
+    paths = tuple(Path(part.strip()) for part in value.split(",") if part.strip())
+    if not paths or len(paths) != len(value.split(",")):
+        raise argparse.ArgumentTypeError("must be a comma-separated list of MP3 paths")
+    return paths
 
 
 def parse_args(argv: Sequence[str] | None = None) -> Settings:
@@ -75,7 +82,11 @@ def parse_args(argv: Sequence[str] | None = None) -> Settings:
         default=100,
         help="Playback volume, 0-100 (default: 100)",
     )
-    parser.add_argument("--noise", type=Path, help="MP3 to loop while waiting")
+    parser.add_argument(
+        "--noise",
+        type=_noise_paths,
+        help="Comma-separated MP3 files to loop while waiting",
+    )
     parser.add_argument(
         "--noise-volume",
         "--noise_volume",

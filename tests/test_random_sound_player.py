@@ -139,6 +139,49 @@ class PlayerCommandTests(unittest.TestCase):
 
 
 class PlaybackLoopTests(unittest.TestCase):
+    def test_starts_and_stops_each_noise_file(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            directory = Path(temp_dir)
+            noise_paths = (directory / "дождь.mp3", directory / "ветер.mp3")
+            for noise_path in noise_paths:
+                noise_path.touch()
+            clock = [0.0]
+            commands: list[list[str]] = []
+
+            class Process:
+                terminated = False
+
+                def poll(self) -> None:
+                    return None
+
+                def terminate(self) -> None:
+                    self.terminated = True
+
+                def wait(self, timeout: float | None = None) -> None:
+                    return None
+
+            processes: list[Process] = []
+
+            def popen(command: list[str]) -> Process:
+                commands.append(command)
+                process = Process()
+                processes.append(process)
+                return process
+
+            play_noise_for_duration(
+                noise_paths,
+                50,
+                60,
+                system="Darwin",
+                which=lambda _: "/usr/bin/afplay",
+                popen=popen,
+                monotonic=lambda: clock[0],
+                sleep=lambda seconds: clock.__setitem__(0, clock[0] + seconds),
+            )
+
+        self.assertEqual([command[-1] for command in commands], list(map(str, noise_paths)))
+        self.assertTrue(all(process.terminated for process in processes))
+
     def test_skips_a_file_that_the_player_cannot_read(self) -> None:
         with TemporaryDirectory() as temp_dir:
             directory = Path(temp_dir)
@@ -243,10 +286,10 @@ class PlaybackLoopTests(unittest.TestCase):
 
 
 class ArgumentTests(unittest.TestCase):
-    def test_noise_uses_default_volume_of_fifty(self) -> None:
-        settings = parse_args(["--noise", "pause.mp3"])
+    def test_noise_list_uses_default_volume_of_fifty(self) -> None:
+        settings = parse_args(["--noise", "first.mp3, second.mp3"])
 
-        self.assertEqual(settings.noise, Path("pause.mp3"))
+        self.assertEqual(settings.noise, (Path("first.mp3"), Path("second.mp3")))
         self.assertEqual(settings.noise_volume, 50)
 
     def test_defaults_directory_to_dot_play(self) -> None:
